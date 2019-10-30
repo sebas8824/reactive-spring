@@ -1,38 +1,19 @@
 package com.microservices.reactive.service
 
 import com.microservices.reactive.data.Customer
-import com.microservices.reactive.data.Customer.Telephone
-import com.microservices.reactive.exception.CustomerExistsException
-import org.springframework.stereotype.Component
+import com.microservices.reactive.repository.CustomerRepository
+import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.stereotype.Service
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
-import reactor.kotlin.core.publisher.toFlux
-import reactor.kotlin.core.publisher.toMono
-import java.util.concurrent.ConcurrentHashMap
 
-@Component
+@Service
 class CustomerServiceImpl: CustomerService {
-    companion object {
-        val initialCustomers = arrayOf(Customer(1, "Kotlin"),
-                Customer(2, "Spring"),
-                Customer(3, "Microservice", Telephone("+57", "3156161953")))
-    }
+    @Autowired
+    lateinit var customerRepository: CustomerRepository
 
-    val customers = ConcurrentHashMap(initialCustomers.associateBy(Customer::id))
-
-    override fun getCustomer(id: Int): Mono<Customer> = Mono.justOrEmpty(customers[id])
-
-    override fun searchCustomers(nameFilter: String): Flux<Customer> = customers.filter {
-        it.value.name.contains(nameFilter, true)
-    }.map(Map.Entry<Int, Customer>::value).toFlux()
-
-    override fun createCustomer(customerMono: Mono<Customer>): Mono<Customer> =
-        customerMono.flatMap {
-            if(customers[it.id] == null) {
-                customers[it.id] = it
-                it.toMono()
-            } else {
-                Mono.error(CustomerExistsException("Customer ${it.id} already exists."))
-            }
-        }
+    override fun getCustomer(id: Int) = customerRepository.findById(id)
+    override fun createCustomer(customer: Mono<Customer>) = customerRepository.create(customer)
+    override fun deleteCustomer(id: Int) = customerRepository.deleteById(id).map { it.deletedCount > 0 }
+    override fun searchCustomers(nameFilter: String): Flux<Customer> = customerRepository.findCustomer(nameFilter)
 }
