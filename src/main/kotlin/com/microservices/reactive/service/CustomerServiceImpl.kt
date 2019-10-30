@@ -2,6 +2,7 @@ package com.microservices.reactive.service
 
 import com.microservices.reactive.data.Customer
 import com.microservices.reactive.data.Customer.Telephone
+import com.microservices.reactive.exception.CustomerExistsException
 import org.springframework.stereotype.Component
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
@@ -26,8 +27,12 @@ class CustomerServiceImpl: CustomerService {
     }.map(Map.Entry<Int, Customer>::value).toFlux()
 
     override fun createCustomer(customerMono: Mono<Customer>): Mono<Customer> =
-        customerMono.map {
-            customers[it.id] = it
-            it
+        customerMono.flatMap {
+            if(customers[it.id] == null) {
+                customers[it.id] = it
+                it.toMono()
+            } else {
+                Mono.error(CustomerExistsException("Customer ${it.id} already exists."))
+            }
         }
 }

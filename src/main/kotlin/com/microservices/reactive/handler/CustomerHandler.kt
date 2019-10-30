@@ -1,6 +1,7 @@
 package com.microservices.reactive.handler
 
 import com.microservices.reactive.data.Customer
+import com.microservices.reactive.data.Error
 import com.microservices.reactive.service.CustomerService
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Component
@@ -8,6 +9,7 @@ import org.springframework.web.reactive.function.BodyInserters.fromValue
 import org.springframework.web.reactive.function.server.ServerRequest
 import org.springframework.web.reactive.function.server.ServerResponse.*
 import org.springframework.web.reactive.function.server.bodyToMono
+import reactor.kotlin.core.publisher.onErrorResume
 import java.net.URI
 
 @Component
@@ -23,5 +25,7 @@ class CustomerHandler(val customerService: CustomerService) {
     fun create(serverRequest: ServerRequest) =
             customerService.createCustomer(serverRequest.bodyToMono()).flatMap {
                 created(URI.create("/functional/customer/${it.id}")).build()
+            }.onErrorResume(Exception::class) {
+                badRequest().body(fromValue(Error("Error creating customer", it.message?: "error")))
             }
 }
